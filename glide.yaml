@@ -1,0 +1,8 @@
+package: .
+import:
+- package: github.com/ceph/go-ceph
+  subpackages:
+  - rados
+  - rbd
+- package: github.com/gorilla/mux
+  version: ^1.6.1
