@@ -10,8 +10,9 @@ import (
 	"net/http"
 	"encoding/json"
 	"time"
-	//"regexp"
-	//"strings"
+	"bufio"
+	"strconv"
+	"regexp"
 )
 
 type Pool struct {
@@ -20,8 +21,8 @@ type Pool struct {
 }
 
 type Image struct {
-	Name string `json:"name"`
-	Size uint64 `json:"size"` //unit: byte
+	Name    string `json:"name"`
+	Size    uint64 `json:"size"`     //unit: byte
 }
 
 type CephHandler struct {
@@ -84,11 +85,12 @@ func (ch *CephHandler) LoadImage(pool string, name string) (*Image, error){
 		return nil, err
 	}
 	defer img.Close()
-	size, err := img.GetSize()
+
+	info, err := img.Stat()
 	if err != nil {
 		return nil, err
 	}
-	return &Image{name, size}, nil
+	return &Image{name, info.Size}, nil
 }
 
 func (ch *CephHandler) ListImage(pool string) ([]Image, error) {
@@ -112,54 +114,72 @@ func (ch *CephHandler) ListImage(pool string) ([]Image, error) {
 			continue
 		}
 		defer img.Close()
-		size, err := img.GetSize()
+		info, err := img.Stat()
 		if err != nil {
-			continue
+			return nil, err
 		}
-		images = append(images, Image{name, size})
+		images = append(images, Image{name, info.Size})
 	}
 	return images, nil
 }
 
-func (ch *CephHandler) Backup(pool string, img string, path string) error {
-	cmd := exec.Command("/usr/bin/rbd", "export", "--pool", pool, img, path)
+func (ch *CephHandler) progressCommand(command []string, fn func(int)) error {
+	cmd := exec.Command(command[0], command[1:]...)
+	stderr, err := cmd.StderrPipe() // ceph rbd command use stderr to print progress
+	if err != nil {
+		return err
+	}
 	if err := cmd.Start(); err != nil {
 		return err
 	}
-
-	instance, err := ch.LoadImage("rbd", "test")
-	if err != nil {
-		log.Println("Loading image failed:", err)
-	}
-	totalSize := int64(instance.Size)
-	percentage := 0
-
 	stop := make(chan bool)
+
 	go func() {
 		tick := time.Tick(100 * time.Millisecond)
+		reader := bufio.NewReader(stderr)
+		re := regexp.MustCompile("[0-9]+")
+		percent := 0
 		for {
 			select {
 			case <- tick:
-				stat, err := os.Stat(path)
+				buffer := make([]byte, 1024)
+				n, err := reader.Read(buffer)
 				if err != nil {
 					continue
 				}
-				percentage = int(float64(stat.Size())/float64(totalSize) * 100)
-				log.Println("Backup Progress:", percentage, "%")
+				i, err := strconv.Atoi(re.FindString(string(buffer[:n])))
+				if err == nil && i > percent {
+					percent = i
+					fn(percent)
+				}
 			case <- stop:
+				if percent < 100 {
+					fn(100) // make sure percentage is 100 when done
+				}
 				return
 			}
 		}
 	}()
-
 	err = cmd.Wait()
 	stop <- true
 	return err
 }
 
+func (ch *CephHandler) Backup(pool string, img string, path string) error {
+	command := []string{"/usr/bin/rbd", "export", "--pool", pool, img, path}
+	fn := func(i int) {
+		log.Println("Backup Progress: ", i, "%")
+	}
+	err := ch.progressCommand(command, fn)
+	return err
+}
+
 func (ch *CephHandler) Restore(pool string, path string) error {
-	cmd := exec.Command("/usr/bin/rbd", "import", "--dest-pool", pool, path)
-	err := cmd.Run()
+	command := []string{"/usr/bin/rbd", "import", "--dest-pool", pool, path}
+	fn := func(i int) {
+		log.Println("Restore Progress: ", i, "%")
+	}
+	err := ch.progressCommand(command, fn)
 	return err
 }
 
@@ -214,15 +234,15 @@ func main() {
 		logger.Println("Rados connect failed:", err)
 	}
 	logger.Println("Rados connect successily")
-	/*
+
 	err = handler.Restore("rbd", "/mnt/test.bk")
 	if err != nil {
 		logger.Println("restore failed:", err)
-	}*/
+	}
 
-	err = handler.Backup("rbd", "test", "/mnt/test.bk")
+	/*err = handler.Backup("rbd", "test", "/mnt/test.bk")
 	if err != nil {
 		logger.Println("backup failed:", err)
-	}
+	}*/
 }
 
