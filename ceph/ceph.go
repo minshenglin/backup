@@ -5,6 +5,7 @@ import (
 	"github.com/ceph/go-ceph/rados"
 	"github.com/ceph/go-ceph/rbd"
 	"log"
+	"os"
 	"os/exec"
 	"regexp"
 	"strconv"
