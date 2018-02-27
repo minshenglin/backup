@@ -3,6 +3,7 @@ package main
 import (
 	"backup/ceph"
 	"backup/repo"
+	"backup/job"
 	"encoding/json"
 	"github.com/gorilla/mux"
 	"log"
@@ -58,11 +59,11 @@ func GetRepoInfo(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(repo)
 }
 func main() {
-	router := mux.NewRouter()
+	/*router := mux.NewRouter()
 	router.HandleFunc("/pools", GetPools).Methods("GET")
 	router.HandleFunc("/pools/{name}/images", GetImages).Methods("GET")
 	router.HandleFunc("/repo", GetRepoInfo).Methods("GET")
-	log.Fatal(http.ListenAndServe(":8000", router))
+	log.Fatal(http.ListenAndServe(":8000", router))*/
 
 	/*logger := log.New(os.Stdout, "", log.Ldate|log.Ltime)
 
@@ -81,4 +82,13 @@ func main() {
 	if err != nil {
 		logger.Println("backup failed:", err)
 	}*/
+	jb := job.NewJobHandler("192.168.15.100:6379")
+	uuid, err := jb.CreateJob("backup", "rbd", "test", "/mnt")
+	if err != nil {
+		log.Println(err)
+	}
+	log.Println(uuid)
+
+	s, _ := jb.LoadJob(uuid)
+	log.Println(s)
 }

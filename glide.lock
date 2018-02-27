@@ -1,0 +1,15 @@
+hash: b1e8188a36fecc886f6cd355d3cfb63f73a8a0d19b6088ce155864cbab667d1e
+updated: 2018-02-27T15:58:41.680357326+08:00
+imports:
+- name: github.com/ceph/go-ceph
+  version: bd5bc6d4cb3e3d3441f2ec4e9f89899178edfc71
+  subpackages:
+  - rados
+  - rbd
+- name: github.com/garyburd/redigo
+  version: d1ed5c67e5794de818ea85e6b522fda02623a484
+- name: github.com/gorilla/context
+  version: 08b5f424b9271eedf6f9f0ce86cb9396ed337a42
+- name: github.com/gorilla/mux
+  version: 53c1911da2b537f792e7cafcb446b05ffe33b996
+testImports: []
