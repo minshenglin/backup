@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"encoding/json"
 	"log"
+	"errors"
 )
 
 type Job struct {
@@ -93,6 +94,9 @@ func (jh *JobHandler) LoadJob(uuid string) (string, error) {
 }
 
 func (jh *JobHandler) ListJob(length int) ([]Job, error) {
+	if length < 0 {
+		return []Job{}, errors.New("invalid length")
+	}
 	client, err := redis.Dial("tcp", jh.redisAddress)
 	if err != nil {
 		return []Job{}, err
