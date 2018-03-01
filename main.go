@@ -58,6 +58,7 @@ func GetRepoInfo(w http.ResponseWriter, r *http.Request) {
 	}
 	json.NewEncoder(w).Encode(repo)
 }
+
 func main() {
 	/*router := mux.NewRouter()
 	router.HandleFunc("/pools", GetPools).Methods("GET")
@@ -88,7 +89,14 @@ func main() {
 		log.Println(err)
 	}
 	log.Println(uuid)
+	//s, _ := jb.LoadJob(uuid)
+	//log.Println(s)
 
-	s, _ := jb.LoadJob(uuid)
-	log.Println(s)
+	jobs, err := jb.ListJob(10)
+	if err != nil {
+		log.Println(err)
+	}
+	for _, j := range jobs {
+		log.Println(j)
+	}
 }

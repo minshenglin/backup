@@ -7,6 +7,7 @@ import (
 	"time"
 	"fmt"
 	"encoding/json"
+	"log"
 )
 
 type Job struct {
@@ -16,6 +17,15 @@ type Job struct {
 	Pool         string  `json:"pool"`
 	Image        string  `json:"image"`
 	Path         string  `json:"path"`
+}
+
+func NewJob(data string) (*Job, error) {
+	job := Job{}
+	err := json.Unmarshal([]byte(data), &job)
+	if err != nil {
+		return &Job{}, err
+	}
+	return &job, nil
 }
 
 type JobHandler struct {
@@ -34,7 +44,7 @@ func (jh *JobHandler) makeUuid() (string, error) {
 }
 
 func NewJobHandler(redisAddress string) *JobHandler{
-	return &JobHandler{redisAddress, "job-"}
+	return &JobHandler{redisAddress, "job:"}
 }
 
 func (jh *JobHandler) CreateJob(kind string, pool string, image string, path string) (string, error) {
@@ -61,6 +71,8 @@ func (jh *JobHandler) CreateJob(kind string, pool string, image string, path str
 	if err != nil {
 		return "", err
 	}
+
+	client.Do("RPUSH", jh.prefix + "list", uuid)
 	return uuid, nil
 }
 
@@ -78,4 +90,32 @@ func (jh *JobHandler) LoadJob(uuid string) (string, error) {
 		return "", err
 	}
 	return v, nil
+}
+
+func (jh *JobHandler) ListJob(length int) ([]Job, error) {
+	client, err := redis.Dial("tcp", jh.redisAddress)
+	if err != nil {
+		return []Job{}, err
+	}
+	defer client.Close()
+
+	v, err := redis.Values(client.Do("LRANGE", jh.prefix + "list", -length, -1)) // take least n element
+	if err != nil {
+		return []Job{}, err
+	}
+	log.Println("Job list loaded done, length is", len(v))
+	jobs := make([]Job, 0)
+	for _, uuid := range v {
+		key := jh.prefix + string(uuid.([]byte))
+		v, err := redis.String(client.Do("GET", key))
+		if err != nil {
+			continue
+		}
+		j, err := NewJob(v)
+		if err != nil {
+			continue
+		}
+		jobs = append(jobs, *j)
+	}
+	return jobs, nil
 }
