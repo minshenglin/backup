@@ -4,8 +4,6 @@ import (
 	"bufio"
 	"github.com/ceph/go-ceph/rados"
 	"github.com/ceph/go-ceph/rbd"
-	"log"
-	"os"
 	"os/exec"
 	"regexp"
 	"strconv"
@@ -162,40 +160,14 @@ func (ch *CephHandler) progressCommand(command []string, fn func(int)) error {
 	return err
 }
 
-func (ch *CephHandler) Backup(pool string, img string, path string) error {
+func (ch *CephHandler) Backup(pool string, img string, path string, fn func(int)) error {
 	command := []string{"/usr/bin/rbd", "export", "--pool", pool, img, path}
-	fn := func(i int) {
-		log.Println("Backup Progress: ", i, "%")
-	}
 	err := ch.progressCommand(command, fn)
 	return err
 }
 
-func (ch *CephHandler) Restore(pool string, path string) error {
+func (ch *CephHandler) Restore(pool string, path string, fn func(int)) error {
 	command := []string{"/usr/bin/rbd", "import", "--dest-pool", pool, path}
-	fn := func(i int) {
-		log.Println("Restore Progress: ", i, "%")
-	}
 	err := ch.progressCommand(command, fn)
 	return err
-}
-
-func main() {
-	logger := log.New(os.Stdout, "", log.Ldate|log.Ltime)
-
-	handler, err := NewCephHandler()
-	if err != nil {
-		logger.Println("Rados connect failed:", err)
-	}
-	logger.Println("Rados connect successily")
-
-	err = handler.Restore("rbd", "/mnt/test.bk")
-	if err != nil {
-		logger.Println("restore failed:", err)
-	}
-
-	/*err = handler.Backup("rbd", "test", "/mnt/test.bk")
-	if err != nil {
-		logger.Println("backup failed:", err)
-	}*/
 }
