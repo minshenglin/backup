@@ -14,6 +14,10 @@ import (
 type Job struct {
 	Uuid         string  `json:"uuid"`
 	CreatedTime  uint64  `json:"created_time"`
+	Tasks        Task    `json:"task"`
+}
+
+type Task struct {
 	Type         string  `json:"type"`
 	Pool         string  `json:"pool"`
 	Image        string  `json:"image"`
@@ -48,14 +52,14 @@ func NewJobHandler(redisAddress string) *JobHandler{
 	return &JobHandler{redisAddress, "job:"}
 }
 
-func (jh *JobHandler) CreateJob(kind string, pool string, image string, path string) (string, error) {
+func (jh *JobHandler) CreateJob(task Task) (string, error) {
 	uuid, err := jh.makeUuid()
 	if err != nil {
 		return "", err
 	}
 	timestamp := uint64(time.Now().Unix())
 
-	job := Job{uuid, timestamp, kind, pool, image, path}
+	job := Job{uuid, timestamp, task}
 
 	b, err := json.Marshal(job)
 	if err != nil {
@@ -122,4 +126,15 @@ func (jh *JobHandler) ListJob(length int) ([]Job, error) {
 		jobs = append(jobs, *j)
 	}
 	return jobs, nil
+}
+
+func (jh *JobHandler) UpdateJobProgress(uuid string, percentage int) error {
+	client, err := redis.Dial("tcp", jh.redisAddress)
+	if err != nil {
+		return err
+	}
+	defer client.Close()
+
+	_, err = client.Do("SET", jh.prefix + uuid + "-progress", percentage)
+	return err
 }
