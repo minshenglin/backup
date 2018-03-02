@@ -8,6 +8,7 @@ import (
 	"regexp"
 	"strconv"
 	"time"
+	"log"
 )
 
 type Pool struct {
@@ -122,9 +123,11 @@ func (ch *CephHandler) progressCommand(command []string, fn func(int)) error {
 	cmd := exec.Command(command[0], command[1:]...)
 	stderr, err := cmd.StderrPipe() // ceph rbd command use stderr to print progress
 	if err != nil {
+		log.Println("Open stderr pipe failed")
 		return err
 	}
 	if err := cmd.Start(); err != nil {
+		log.Println("Execute command failed", command)
 		return err
 	}
 	stop := make(chan bool)
@@ -148,16 +151,18 @@ func (ch *CephHandler) progressCommand(command []string, fn func(int)) error {
 					fn(percent)
 				}
 			case <-stop:
-				if percent < 100 {
-					fn(100) // make sure percentage is 100 when done
-				}
 				return
 			}
 		}
 	}()
-	err = cmd.Wait()
-	stop <- true
-	return err
+
+	go func() {
+		cmd.Wait()
+		stop <- true
+		fn(100) // make sure percentage is 100 when done
+	}()
+
+	return nil
 }
 
 func (ch *CephHandler) Backup(pool string, img string, path string, fn func(int)) error {
