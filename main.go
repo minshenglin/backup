@@ -6,7 +6,7 @@ import (
 	"backup/job"
 	"encoding/json"
 	"github.com/gorilla/mux"
-	"log" 
+	"log"
 	"net/http"
 	"os"
 	"strconv"
@@ -51,16 +51,37 @@ func GetImages(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(images)
 }
 
-func GetRepoInfo(w http.ResponseWriter, r *http.Request) {
-	repo, err := repo.NewRepository("/mnt")
+func GetRepos(w http.ResponseWriter, r *http.Request) {
+	rh := repo.NewRepositoryHandler("192.168.15.100:6379")
+	repos, err := rh.ListRepo()
 	if err != nil {
-		log.Println("Loading repository info failed")
+		log.Println("List Repo failed:", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
-	json.NewEncoder(w).Encode(repo)
+	json.NewEncoder(w).Encode(repos)
 }
 
-func GetJobList(w http.ResponseWriter, r *http.Request) {
+func CreateRepo(w http.ResponseWriter, r *http.Request) {
+
+	repository := repo.Repository{}
+	err := json.NewDecoder(r.Body).Decode(&repository)
+	if err != nil {
+		log.Println("Add Repo failed:", err)
+		http.Error(w, "Bad Request", http.StatusBadRequest)
+		return
+	}
+
+	rh := repo.NewRepositoryHandler("192.168.15.100:6379")
+	err = rh.AddRepo(repository)
+	if err != nil {
+		log.Println("Add Repo failed:", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return 
+	}
+}
+
+func GetJobs(w http.ResponseWriter, r *http.Request) {
 	length, err := strconv.Atoi(r.FormValue("length"))
 	if err != nil {
 		log.Println("the length of job is invaild")
@@ -109,8 +130,9 @@ func main() {
 	router := mux.NewRouter()
 	router.HandleFunc("/pools", GetPools).Methods("GET")
 	router.HandleFunc("/pools/{name}/images", GetImages).Methods("GET")
-	router.HandleFunc("/repos", GetRepoInfo).Methods("GET")
-	router.HandleFunc("/jobs", GetJobList).Queries("length", "{length}").Methods("GET")
+	router.HandleFunc("/repos", GetRepos).Methods("GET")
+	router.HandleFunc("/repos", CreateRepo).Methods("POST")
+	router.HandleFunc("/jobs", GetJobs).Queries("length", "{length}").Methods("GET")
 	router.HandleFunc("/jobs", CreateJob).Methods("POST")
 	log.Fatal(http.ListenAndServe(":8000", router))
 
