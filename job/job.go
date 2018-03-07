@@ -1,11 +1,10 @@
 package job
 
 import (
-	"crypto/rand"
 	"github.com/garyburd/redigo/redis"
+	"backup/utils"
 	//"backup/ceph"
 	"time"
-	"fmt"
 	"encoding/json"
 	"log"
 	"errors"
@@ -38,22 +37,12 @@ type JobHandler struct {
 	prefix string
 }
 
-func (jh *JobHandler) makeUuid() (string, error) {
-	b := make([]byte, 16)
-	_, err := rand.Read(b)
-	if err != nil {
-		return "", err
-	}
-	uuid := fmt.Sprintf("%X-%X-%X-%X-%X", b[0:4], b[4:6], b[6:8], b[8:10], b[10:])
-	return uuid, nil
-}
-
 func NewJobHandler(redisAddress string) *JobHandler{
 	return &JobHandler{redisAddress, "job:"}
 }
 
 func (jh *JobHandler) CreateJob(task Task) (string, error) {
-	uuid, err := jh.makeUuid()
+	uuid, err := utils.MakeUuid()
 	if err != nil {
 		return "", err
 	}
