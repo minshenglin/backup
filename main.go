@@ -72,7 +72,7 @@ func CreateRepo(w http.ResponseWriter, r *http.Request) {
 	}
 
 	rh := repo.NewRepositoryHandler("192.168.15.100:6379")
-	err = rh.AddRepo(repository)
+	_, err = rh.AddRepo(repository)
 	if err != nil {
 		log.Println("Add Repo failed:", err)
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
@@ -81,22 +81,7 @@ func CreateRepo(w http.ResponseWriter, r *http.Request) {
 }
 
 func DeleteRepo(w http.ResponseWriter, r *http.Request) {
-
-	repository := repo.Repository{}
-	err := json.NewDecoder(r.Body).Decode(&repository)
-	if err != nil {
-		log.Println("Delete Repo failed:", err)
-		http.Error(w, "Bad Request", http.StatusBadRequest)
-		return
-	}
-
-	rh := repo.NewRepositoryHandler("192.168.15.100:6379")
-	err = rh.AddRepo(repository)
-	if err != nil {
-		log.Println("Delete Repo failed:", err)
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-		return
-	}
+	return
 }
 
 func GetJobs(w http.ResponseWriter, r *http.Request) {
