@@ -35,10 +35,12 @@ func (rh *RepositoryHandler) AddRepo(repo Repository) (string, error) {
 	if !f.IsDir() {
 		return "", errors.New("path " + repo.Path + " is not directory")
 	}
-	uuid, err := utils.MakeUuid()
+
+	uuid, err := utils.MakeUuid() 
 	if err != nil {
 		return "", err
 	}
+	repo.Uuid = uuid
 	err = rh.redis.Add(repo, rh.namespace, uuid)
 	return uuid, err
 }
@@ -63,6 +65,10 @@ func (rh *RepositoryHandler) ListRepo() ([]Repository, error) {
 		repos = append(repos, repo)
 	}
 	return repos, nil
+}
+
+func (rh *RepositoryHandler) RemoveRepo(uuid string) error {
+	return rh.redis.Delete(rh.namespace, uuid)
 }
 
 func (rh *RepositoryHandler) getSpaceInfo(path string) (uint64, uint64, error) {
