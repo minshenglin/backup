@@ -3,13 +3,14 @@ package repo
 import (
 	"encoding/json"
 	"errors"
-	"github.com/garyburd/redigo/redis"
+	"backup/redis"
+	"backup/utils"
 	"os"
-	"log"
 	"syscall"
 )
 
 type Repository struct {
+	Uuid  string `json:"uuid"`
 	Name  string `json:"name"`
 	Path  string `json:"path"`
 	Free  uint64 `json:"free_space,omitempty"`
@@ -17,64 +18,44 @@ type Repository struct {
 }
 
 type RepositoryHandler struct {
-	redisAddress string
+	redis *redis.RedisHandler
 	namespace    string
 }
 
 func NewRepositoryHandler(redisAddress string) *RepositoryHandler {
-	return &RepositoryHandler{redisAddress, "repo:"}
+	rh := redis.New(redisAddress)
+	return &RepositoryHandler{rh, "repo"}
 }
 
-func (rh *RepositoryHandler) AddRepo(repo Repository) error {
-
-	log.Println("Connect to redis")
-	client, err := redis.Dial("tcp", rh.redisAddress)
-	if err != nil {
-		return err
-	}
-	defer client.Close()
-
-	log.Println("Check repo path", repo.Path, "is direcory")
-
+func (rh *RepositoryHandler) AddRepo(repo Repository) (string, error) {
 	f, err := os.Stat(repo.Path)
 	if err != nil {
-		return err
+		return "", err
 	}
 	if !f.IsDir() {
-		return errors.New("path " + repo.Path + " is not directory")
+		return "", errors.New("path " + repo.Path + " is not directory")
 	}
-
-	b, err := json.Marshal(repo)
+	uuid, err := utils.MakeUuid()
 	if err != nil {
-		return nil
+		return "", err
 	}
-
-	log.Println("Push Repo info string to redis")
-	_, err = client.Do("RPUSH", rh.namespace+"list", string(b))
-	return err
+	err = rh.redis.Add(repo, rh.namespace, uuid)
+	return uuid, err
 }
 
 func (rh *RepositoryHandler) ListRepo() ([]Repository, error) {
-	client, err := redis.Dial("tcp", rh.redisAddress)
+	list, err := rh.redis.List(rh.namespace)
 	if err != nil {
 		return []Repository{}, err
 	}
-	defer client.Close()
-
-	v, err := redis.Values(client.Do("LRANGE", rh.namespace + "list" ,0, -1)) // take all element
-	if err != nil {
-		return []Repository{}, err
-	}
-	log.Println("Repo list loaded done, length is", len(v))
 
 	repos := make([]Repository, 0)
-	for _, b := range v {
+	for _, s := range list {
 		repo := Repository{}
-		err := json.Unmarshal(b.([]byte), &repo)
+		err := json.Unmarshal([]byte(s), &repo)
 		if err != nil {
 			continue
 		}
-
 		repo.Free, repo.Total, err = rh.getSpaceInfo(repo.Path)
 		if err != nil {
 			continue
