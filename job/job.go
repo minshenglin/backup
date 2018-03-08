@@ -8,7 +8,7 @@ import (
 )
 
 type Job struct {
-	Uuid         string  `json:"uuid,omitempty"`
+	Uuid         string  `json:"uuid"`
 	CreatedTime  uint64  `json:"created_time"`
 	Tasks        Task    `json:"task"`
 }
