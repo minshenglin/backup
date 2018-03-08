@@ -67,6 +67,10 @@ func (rh *RepositoryHandler) ListRepo() ([]Repository, error) {
 	return repos, nil
 }
 
+func (rh *RepositoryHandler) RemoveRepo(uuid string) error {
+	return rh.redis.Delete(rh.namespace, uuid)
+}
+
 func (rh *RepositoryHandler) getSpaceInfo(path string) (uint64, uint64, error) {
 
 	fs := syscall.Statfs_t{}

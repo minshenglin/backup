@@ -81,7 +81,15 @@ func CreateRepo(w http.ResponseWriter, r *http.Request) {
 }
 
 func DeleteRepo(w http.ResponseWriter, r *http.Request) {
-	return
+	rh := repo.NewRepositoryHandler("192.168.15.100:6379")
+	// Get pool name
+	uuid := mux.Vars(r)["uuid"]
+	err := rh.RemoveRepo(uuid)
+	if err != nil {
+		log.Println("Delete Repo failed:", err)
+		http.Error(w, "Bad Request", http.StatusBadRequest)
+		return
+	}
 }
 
 func GetJobs(w http.ResponseWriter, r *http.Request) {
@@ -130,6 +138,7 @@ func main() {
 	router.HandleFunc("/pools/{name}/images", GetImages).Methods("GET")
 	router.HandleFunc("/repos", GetRepos).Methods("GET")
 	router.HandleFunc("/repos", CreateRepo).Methods("POST")
+	router.HandleFunc("/repos/{uuid}", DeleteRepo).Methods("DELETE")
 	router.HandleFunc("/jobs", GetJobs).Methods("GET")
 	router.HandleFunc("/jobs", CreateJob).Methods("POST")
 	log.Fatal(http.ListenAndServe(":8000", router))
