@@ -9,7 +9,6 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"strconv"
 )
 
 func GetPools(w http.ResponseWriter, r *http.Request) {
@@ -77,18 +76,32 @@ func CreateRepo(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Println("Add Repo failed:", err)
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-		return 
+		return
+	}
+}
+
+func DeleteRepo(w http.ResponseWriter, r *http.Request) {
+
+	repository := repo.Repository{}
+	err := json.NewDecoder(r.Body).Decode(&repository)
+	if err != nil {
+		log.Println("Delete Repo failed:", err)
+		http.Error(w, "Bad Request", http.StatusBadRequest)
+		return
+	}
+
+	rh := repo.NewRepositoryHandler("192.168.15.100:6379")
+	err = rh.AddRepo(repository)
+	if err != nil {
+		log.Println("Delete Repo failed:", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
 	}
 }
 
 func GetJobs(w http.ResponseWriter, r *http.Request) {
-	length, err := strconv.Atoi(r.FormValue("length"))
-	if err != nil {
-		log.Println("the length of job is invaild")
-		return
-	}
 	jb := job.NewJobHandler("192.168.15.100:6379")
-	jobs, err := jb.ListJob(length)
+	jobs, err := jb.ListJob()
 	if err != nil {
 		log.Println(err)
 	}
@@ -132,7 +145,7 @@ func main() {
 	router.HandleFunc("/pools/{name}/images", GetImages).Methods("GET")
 	router.HandleFunc("/repos", GetRepos).Methods("GET")
 	router.HandleFunc("/repos", CreateRepo).Methods("POST")
-	router.HandleFunc("/jobs", GetJobs).Queries("length", "{length}").Methods("GET")
+	router.HandleFunc("/jobs", GetJobs).Methods("GET")
 	router.HandleFunc("/jobs", CreateJob).Methods("POST")
 	log.Fatal(http.ListenAndServe(":8000", router))
 
