@@ -70,6 +70,38 @@ func (h *RedisHandler) List(namespace string) ([]string, error) {
 	return list, nil
 }
 
+func (h *RedisHandler) Delete(namespace string, uuid string) error {
+	client, err := h.connect()
+	if err != nil {
+		return err
+	}
+	defer client.Close()
+
+	log.Println("Removing element", uuid, "from namespace",  namespace)
+
+	element := namespace + "-" + uuid
+	_, err = client.Do("DEL", element, element + "-progress")
+	if err != nil {
+		return err
+	}
+	_, err = client.Do("LREM", namespace + "-list", 0, uuid)
+	return err
+}
+
+func (h *RedisHandler) IsExists(namespace string, uuid string) (bool, error) {
+	client, err := h.connect()
+	if err != nil {
+		return false, err
+	}
+	defer client.Close()
+
+	key := namespace + "-" + uuid
+    ok, err := redis.Bool(client.Do("EXISTS", key))
+	if err != nil {
+		return false, err
+	}
+	return ok, nil
+}
 
 func (h *RedisHandler) UpdateProgress(namespace string, uuid string, percentage int) error {
 	client, err := h.connect()
