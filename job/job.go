@@ -1,17 +1,14 @@
 package job
 
 import (
-	"github.com/garyburd/redigo/redis"
+	"backup/redis"
 	"backup/utils"
-	//"backup/ceph"
 	"time"
 	"encoding/json"
-	"log"
-	"errors"
 )
 
 type Job struct {
-	Uuid         string  `json:"uuid"`
+	Uuid         string  `json:"uuid,omitempty"`
 	CreatedTime  uint64  `json:"created_time"`
 	Tasks        Task    `json:"task"`
 }
@@ -33,12 +30,13 @@ func NewJob(data string) (*Job, error) {
 }
 
 type JobHandler struct {
-	redisAddress string
-	prefix string
+	rh *redis.RedisHandler
+	namespace string
 }
 
 func NewJobHandler(redisAddress string) *JobHandler{
-	return &JobHandler{redisAddress, "job:"}
+	rh := redis.New(redisAddress)
+	return &JobHandler{rh, "job"}
 }
 
 func (jh *JobHandler) CreateJob(task Task) (string, error) {
@@ -49,81 +47,29 @@ func (jh *JobHandler) CreateJob(task Task) (string, error) {
 	timestamp := uint64(time.Now().Unix())
 
 	job := Job{uuid, timestamp, task}
-
-	b, err := json.Marshal(job)
-	if err != nil {
-		return "", err
-	}
-	client, err := redis.Dial("tcp", jh.redisAddress)
-	if err != nil {
-		return "", err
-	}
-	defer client.Close()
-
-	key := jh.prefix + uuid
-	_, err = client.Do("SET", key, string(b))
-	if err != nil {
-		return "", err
-	}
-
-	client.Do("RPUSH", jh.prefix + "list", uuid)
-	return uuid, nil
+	err = jh.rh.Add(job, jh.namespace, uuid)
+	return uuid, err
 }
 
-func (jh *JobHandler) LoadJob(uuid string) (string, error) {
-
-	client, err := redis.Dial("tcp", jh.redisAddress)
-	if err != nil {
-		return "", err
-	}
-	defer client.Close()
-
-	key := jh.prefix + uuid
-	v, err := redis.String(client.Do("GET", key))
-	if err != nil {
-		return "", err
-	}
-	return v, nil
-}
-
-func (jh *JobHandler) ListJob(length int) ([]Job, error) {
-	if length < 0 {
-		return []Job{}, errors.New("invalid length")
-	}
-	client, err := redis.Dial("tcp", jh.redisAddress)
+func (jh *JobHandler) ListJob() ([]Job, error) {
+	list, err := jh.rh.List(jh.namespace)
 	if err != nil {
 		return []Job{}, err
 	}
-	defer client.Close()
 
-	v, err := redis.Values(client.Do("LRANGE", jh.prefix + "list", -length, -1)) // take least n element
-	if err != nil {
-		return []Job{}, err
-	}
-	log.Println("Job list loaded done, length is", len(v))
 	jobs := make([]Job, 0)
-	for _, uuid := range v {
-		key := jh.prefix + string(uuid.([]byte))
-		v, err := redis.String(client.Do("GET", key))
+	for _, s := range list {
+		job := Job{}
+		err := json.Unmarshal([]byte(s), &job)
 		if err != nil {
 			continue
 		}
-		j, err := NewJob(v)
-		if err != nil {
-			continue
-		}
-		jobs = append(jobs, *j)
+		jobs = append(jobs, job)
 	}
 	return jobs, nil
 }
 
 func (jh *JobHandler) UpdateJobProgress(uuid string, percentage int) error {
-	client, err := redis.Dial("tcp", jh.redisAddress)
-	if err != nil {
-		return err
-	}
-	defer client.Close()
-
-	_, err = client.Do("SET", jh.prefix + uuid + "-progress", percentage)
+	err := jh.rh.UpdateProgress(jh.namespace, uuid, percentage)
 	return err
 }
