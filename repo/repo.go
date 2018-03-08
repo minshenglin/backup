@@ -35,10 +35,12 @@ func (rh *RepositoryHandler) AddRepo(repo Repository) (string, error) {
 	if !f.IsDir() {
 		return "", errors.New("path " + repo.Path + " is not directory")
 	}
-	uuid, err := utils.MakeUuid()
+
+	uuid, err := utils.MakeUuid() 
 	if err != nil {
 		return "", err
 	}
+	repo.Uuid = uuid
 	err = rh.redis.Add(repo, rh.namespace, uuid)
 	return uuid, err
 }
