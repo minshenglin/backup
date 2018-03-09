@@ -72,12 +72,13 @@ func CreateRepo(w http.ResponseWriter, r *http.Request) {
 	}
 
 	rh := repo.NewRepositoryHandler("192.168.15.100:6379")
-	_, err = rh.AddRepo(repository)
+	_, err = rh.AddRepo(&repository)
 	if err != nil {
 		log.Println("Add Repo failed:", err)
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
+	json.NewEncoder(w).Encode(repository)
 }
 
 func DeleteRepo(w http.ResponseWriter, r *http.Request) {
@@ -93,8 +94,8 @@ func DeleteRepo(w http.ResponseWriter, r *http.Request) {
 }
 
 func GetJobs(w http.ResponseWriter, r *http.Request) {
-	jb := job.NewJobHandler("192.168.15.100:6379")
-	jobs, err := jb.ListJob()
+	jh := job.NewJobHandler("192.168.15.100:6379")
+	jobs, err := jh.ListJob()
 	if err != nil {
 		log.Println(err)
 	}
@@ -117,15 +118,15 @@ func CreateJob(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	jb := job.NewJobHandler("192.168.15.100:6379")
-	uuid, err := jb.CreateJob(task)
+	jh := job.NewJobHandler("192.168.15.100:6379")
+	job, err := jh.CreateJob(task)
 	if err != nil {
 		http.Error(w, "Internal Server Error: can not operate redis server", http.StatusInternalServerError)
 		return
 	}
 
 	fn := func(progress int) {
-		jb.UpdateJobProgress(uuid, progress)
+		jh.UpdateJobProgress(job.Uuid, progress)
 	}
 
 	ch := ceph.CephHandler{}
@@ -143,6 +144,7 @@ func CreateJob(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	json.NewEncoder(w).Encode(job)
 }
 
 func GetJobProgress(w http.ResponseWriter, r *http.Request) {
