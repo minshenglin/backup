@@ -45,6 +45,16 @@ func (h *RedisHandler) Add(i interface{}, uuid string) error {
 	return nil
 }
 
+func (h *RedisHandler) Load(uuid string) ([]byte, error) {
+	client, err := h.connect()
+	if err != nil {
+		return nil, err
+	}
+	defer client.Close()
+
+	return redis.Bytes(client.Do("GET", h.namespace + "-" + uuid))
+}
+
 func (h *RedisHandler) List() ([]string, error) {
 	client, err := h.connect()
 	if err != nil {
