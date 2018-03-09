@@ -17,7 +17,7 @@ type Task struct {
 	Type         string  `json:"type"`
 	Pool         string  `json:"pool"`
 	Image        string  `json:"image"`
-	Path         string  `json:"path"`
+	RepoUuid     string  `json:"repo_uuid"`
 }
 
 func NewJob(data string) (*Job, error) {
@@ -31,12 +31,11 @@ func NewJob(data string) (*Job, error) {
 
 type JobHandler struct {
 	rh *redis.RedisHandler
-	namespace string
 }
 
 func NewJobHandler(redisAddress string) *JobHandler{
-	rh := redis.New(redisAddress)
-	return &JobHandler{rh, "job"}
+	rh := redis.New(redisAddress, "job")
+	return &JobHandler{rh}
 }
 
 func (jh *JobHandler) CreateJob(task Task) (string, error) {
@@ -47,12 +46,12 @@ func (jh *JobHandler) CreateJob(task Task) (string, error) {
 	timestamp := uint64(time.Now().Unix())
 
 	job := Job{uuid, timestamp, task}
-	err = jh.rh.Add(job, jh.namespace, uuid)
+	err = jh.rh.Add(job, uuid)
 	return uuid, err
 }
 
 func (jh *JobHandler) ListJob() ([]Job, error) {
-	list, err := jh.rh.List(jh.namespace)
+	list, err := jh.rh.List()
 	if err != nil {
 		return []Job{}, err
 	}
@@ -70,6 +69,6 @@ func (jh *JobHandler) ListJob() ([]Job, error) {
 }
 
 func (jh *JobHandler) UpdateJobProgress(uuid string, percentage int) error {
-	err := jh.rh.UpdateProgress(jh.namespace, uuid, percentage)
+	err := jh.rh.UpdateProgress(uuid, percentage)
 	return err
 }

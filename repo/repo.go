@@ -19,12 +19,11 @@ type Repository struct {
 
 type RepositoryHandler struct {
 	redis *redis.RedisHandler
-	namespace    string
 }
 
 func NewRepositoryHandler(redisAddress string) *RepositoryHandler {
-	rh := redis.New(redisAddress)
-	return &RepositoryHandler{rh, "repo"}
+	rh := redis.New(redisAddress, "repo")
+	return &RepositoryHandler{rh}
 }
 
 func (rh *RepositoryHandler) AddRepo(repo Repository) (string, error) {
@@ -36,17 +35,17 @@ func (rh *RepositoryHandler) AddRepo(repo Repository) (string, error) {
 		return "", errors.New("path " + repo.Path + " is not directory")
 	}
 
-	uuid, err := utils.MakeUuid() 
+	uuid, err := utils.MakeUuid()
 	if err != nil {
 		return "", err
 	}
 	repo.Uuid = uuid
-	err = rh.redis.Add(repo, rh.namespace, uuid)
+	err = rh.redis.Add(repo, uuid)
 	return uuid, err
 }
 
 func (rh *RepositoryHandler) ListRepo() ([]Repository, error) {
-	list, err := rh.redis.List(rh.namespace)
+	list, err := rh.redis.List()
 	if err != nil {
 		return []Repository{}, err
 	}
@@ -68,7 +67,11 @@ func (rh *RepositoryHandler) ListRepo() ([]Repository, error) {
 }
 
 func (rh *RepositoryHandler) RemoveRepo(uuid string) error {
-	return rh.redis.Delete(rh.namespace, uuid)
+	return rh.redis.Delete(uuid)
+}
+
+func (rh *RepositoryHandler) IsExists(uuid string) (bool, error) {
+	return rh.redis.IsExists(uuid)
 }
 
 func (rh *RepositoryHandler) getSpaceInfo(path string) (uint64, uint64, error) {
