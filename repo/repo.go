@@ -44,6 +44,21 @@ func (rh *RepositoryHandler) AddRepo(repo Repository) (string, error) {
 	return uuid, err
 }
 
+func (rh *RepositoryHandler) LoadRepo(uuid string) (Repository, error) {
+	bs, err := rh.redis.Load(uuid)
+
+	repo := Repository{}
+	err = json.Unmarshal(bs, &repo)
+	if err != nil {
+		return Repository{}, err
+	}
+	repo.Free, repo.Total, err = rh.getSpaceInfo(repo.Path)
+	if err != nil {
+		return Repository{}, err
+	}
+	return repo, nil
+}
+
 func (rh *RepositoryHandler) ListRepo() ([]Repository, error) {
 	list, err := rh.redis.List()
 	if err != nil {
