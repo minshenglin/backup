@@ -106,11 +106,22 @@ func CreateJob(w http.ResponseWriter, r *http.Request) {
 	err := json.NewDecoder(r.Body).Decode(&task)
 	if err != nil {
 		http.Error(w, "Bad Request", http.StatusBadRequest)
+		return
 	}
+
+	rh := repo.NewRepositoryHandler("192.168.15.100:6379")
+	repository, err := rh.LoadRepo(task.RepoUuid)
+	if err != nil {
+		log.Println("Loading repo", task.RepoUuid, "failed", err)
+		http.Error(w, "Bad Request", http.StatusBadRequest)
+		return
+	}
+
 	jb := job.NewJobHandler("192.168.15.100:6379")
 	uuid, err := jb.CreateJob(task)
 	if err != nil {
 		http.Error(w, "Internal Server Error: can not operate redis server", http.StatusInternalServerError)
+		return
 	}
 
 	fn := func(progress int) {
@@ -120,14 +131,16 @@ func CreateJob(w http.ResponseWriter, r *http.Request) {
 	ch := ceph.CephHandler{}
 	switch task.Type {
 	case "backup":
-		err = ch.Backup(task.Pool, task.Image, task.Path, fn)
+		err = ch.Backup(task.Pool, task.Image, repository.Path + "/"  + task.Image, fn)
 		if err != nil {
 			http.Error(w, "Internal Server Error: backup progress is not executed", http.StatusInternalServerError)
+			return
 		}
 	case "restore":
-		err = ch.Restore(task.Pool, task.Path, fn)
+		err = ch.Restore(task.Pool, repository.Path + "/" + task.Image, fn)
 		if err != nil {
 			http.Error(w, "Internal Server Error: backup progress is not executed", http.StatusInternalServerError)
+			return
 		}
 	}
 }
