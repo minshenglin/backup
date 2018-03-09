@@ -68,6 +68,10 @@ func (jh *JobHandler) ListJob() ([]Job, error) {
 	return jobs, nil
 }
 
+func (jh *JobHandler) GetJobProgress(uuid string) (string, error) {
+	return jh.rh.GetProgress(uuid)
+}
+
 func (jh *JobHandler) UpdateJobProgress(uuid string, percentage int) error {
 	err := jh.rh.UpdateProgress(uuid, percentage)
 	return err

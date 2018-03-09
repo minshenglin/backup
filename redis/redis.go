@@ -114,6 +114,16 @@ func (h *RedisHandler) IsExists(uuid string) (bool, error) {
 	return ok, nil
 }
 
+func (h *RedisHandler) GetProgress(uuid string) (string, error) {
+	client, err := h.connect()
+	if err != nil {
+		return "", err
+	}
+	defer client.Close()
+
+	return redis.String(client.Do("GET", h.namespace + "-" + uuid + "-progress"))
+}
+
 func (h *RedisHandler) UpdateProgress(uuid string, percentage int) error {
 	client, err := h.connect()
 	if err != nil {
