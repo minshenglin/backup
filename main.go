@@ -145,6 +145,19 @@ func CreateJob(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func GetJobProgress(w http.ResponseWriter, r *http.Request) {
+	jh := job.NewJobHandler("192.168.15.100:6379")
+	// Get job uuid
+	uuid := mux.Vars(r)["uuid"]
+	progress, err := jh.GetJobProgress(uuid)
+	if err != nil {
+		log.Println("Get the progress of repo", uuid, "failed:", err)
+		http.Error(w, "Bad Request", http.StatusBadRequest)
+		return
+	}
+	w.Write([]byte(progress))
+}
+
 func main() {
 	router := mux.NewRouter()
 	router.HandleFunc("/pools", GetPools).Methods("GET")
@@ -154,6 +167,7 @@ func main() {
 	router.HandleFunc("/repos/{uuid}", DeleteRepo).Methods("DELETE")
 	router.HandleFunc("/jobs", GetJobs).Methods("GET")
 	router.HandleFunc("/jobs", CreateJob).Methods("POST")
+	router.HandleFunc("/jobs/{uuid}/progress", GetJobProgress).Methods("GET")
 	log.Fatal(http.ListenAndServe(":8000", router))
 
 	/*logger := log.New(os.Stdout, "", log.Ldate|log.Ltime)
