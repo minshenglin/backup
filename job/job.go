@@ -38,16 +38,16 @@ func NewJobHandler(redisAddress string) *JobHandler{
 	return &JobHandler{rh}
 }
 
-func (jh *JobHandler) CreateJob(task Task) (string, error) {
+func (jh *JobHandler) CreateJob(task Task) (*Job, error) {
 	uuid, err := utils.MakeUuid()
 	if err != nil {
-		return "", err
+		return &Job{}, err
 	}
 	timestamp := uint64(time.Now().Unix())
 
 	job := Job{uuid, timestamp, task}
 	err = jh.rh.Add(job, uuid)
-	return uuid, err
+	return &job, err
 }
 
 func (jh *JobHandler) ListJob() ([]Job, error) {

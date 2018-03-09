@@ -26,7 +26,7 @@ func NewRepositoryHandler(redisAddress string) *RepositoryHandler {
 	return &RepositoryHandler{rh}
 }
 
-func (rh *RepositoryHandler) AddRepo(repo Repository) (string, error) {
+func (rh *RepositoryHandler) AddRepo(repo *Repository) (string, error) {
 	f, err := os.Stat(repo.Path)
 	if err != nil {
 		return "", err
