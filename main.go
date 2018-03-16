@@ -152,6 +152,16 @@ func CreateJob(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Internal Server Error: incremental backup progress is not executed", http.StatusInternalServerError)
 			return
 		}
+	case "incremental-restore":
+		start := task.Incremental.Start
+		end := task.Incremental.End
+		path := repository.Path + "/" + task.Image + "@" + start + "_to_" + end + ".diff"
+		err = ch.IncrementalRestore(task.Pool, task.Image, path, fn)
+		if err != nil {
+			http.Error(w, "Internal Server Error: incremental restore progress is not executed", http.StatusInternalServerError)
+			return
+		}
+
 	}
 	json.NewEncoder(w).Encode(job)
 }

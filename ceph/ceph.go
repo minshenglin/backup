@@ -253,3 +253,9 @@ func (ch *CephHandler) IncrementalBackup(pool string, img string, path string, s
 	err := ch.progressCommand(command, fn)
 	return err
 }
+
+func (ch *CephHandler) IncrementalRestore(pool string, img string, path string, fn func(int)) error {
+	command := []string{"/usr/bin/rbd", "import-diff", "--pool", pool, path, img}
+	err := ch.progressCommand(command, fn)
+	return err
+}
