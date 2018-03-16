@@ -143,6 +143,25 @@ func CreateJob(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Internal Server Error: backup progress is not executed", http.StatusInternalServerError)
 			return
 		}
+	case "incremental-backup":
+		start := task.Incremental.Start
+		end := task.Incremental.End
+		path := repository.Path + "/" + task.Image + "@" + start + "_to_" + end + ".diff"
+		err = ch.IncrementalBackup(task.Pool, task.Image, path, start, end, fn)
+		if err != nil {
+			http.Error(w, "Internal Server Error: incremental backup progress is not executed", http.StatusInternalServerError)
+			return
+		}
+	case "incremental-restore":
+		start := task.Incremental.Start
+		end := task.Incremental.End
+		path := repository.Path + "/" + task.Image + "@" + start + "_to_" + end + ".diff"
+		err = ch.IncrementalRestore(task.Pool, task.Image, path, fn)
+		if err != nil {
+			http.Error(w, "Internal Server Error: incremental restore progress is not executed", http.StatusInternalServerError)
+			return
+		}
+
 	}
 	json.NewEncoder(w).Encode(job)
 }
@@ -160,10 +179,73 @@ func GetJobProgress(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(progress))
 }
 
+func GetSnapshots(w http.ResponseWriter, r *http.Request) {
+
+	handler, err := ceph.NewCephHandler()
+	if err != nil {
+		log.Println("Rados connect failed:", err)
+	}
+	log.Println("Rados connect successily")
+
+	// Get pool and image name
+	poolName := mux.Vars(r)["pool_name"]
+	imgName := mux.Vars(r)["img_name"]
+
+	// list snaps
+	snaps, err := handler.ListSnapshot(poolName, imgName)
+	if err != nil {
+		log.Println("List snapshots of image", imgName, "in pool", poolName, "failed:", err)
+	}
+	json.NewEncoder(w).Encode(snaps)
+}
+
+func CreateSnapshot(w http.ResponseWriter, r *http.Request) {
+
+	handler, err := ceph.NewCephHandler()
+	if err != nil {
+		log.Println("Rados connect failed:", err)
+	}
+	log.Println("Rados connect successily")
+
+	// Get pool and image name
+	poolName := mux.Vars(r)["pool_name"]
+	imgName := mux.Vars(r)["img_name"]
+
+	// list snaps
+	err = handler.CreateSnapshot(poolName, imgName)
+	if err != nil {
+		log.Println("Create snapshot of image", imgName, "in pool", poolName, "failed:", err)
+	}
+}
+
+func DeleteSnapshot(w http.ResponseWriter, r *http.Request) {
+
+	handler, err := ceph.NewCephHandler()
+	if err != nil {
+		log.Println("Rados connect failed:", err)
+	}
+	log.Println("Rados connect successily")
+
+	// Get pool and image name
+	poolName := mux.Vars(r)["pool_name"]
+	imgName := mux.Vars(r)["img_name"]
+	snap_timestamp := mux.Vars(r)["snap_timestamp"]
+
+	// list snaps
+	err = handler.CreateSnapshot(poolName, imgName)
+	if err != nil {
+		log.Println("Delete snapshot", snap_timestamp, "of image", imgName, "in pool", poolName, "failed:", err)
+	}
+}
+
 func main() {
 	router := mux.NewRouter()
 	router.HandleFunc("/pools", GetPools).Methods("GET")
 	router.HandleFunc("/pools/{name}/images", GetImages).Methods("GET")
+
+	router.HandleFunc("/pools/{pool_name}/images/{img_name}/snaps", GetSnapshots).Methods("GET")
+	router.HandleFunc("/pools/{pool_name}/images/{img_name}/snaps/{snap_timestamp}", CreateSnapshot).Methods("POST")
+
 	router.HandleFunc("/repos", GetRepos).Methods("GET")
 	router.HandleFunc("/repos", CreateRepo).Methods("POST")
 	router.HandleFunc("/repos/{uuid}", DeleteRepo).Methods("DELETE")

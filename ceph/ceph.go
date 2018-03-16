@@ -21,6 +21,10 @@ type Image struct {
 	Size uint64 `json:"size"` //unit: byte
 }
 
+type SnapShot struct {
+	Timestamp   int `json:"timestamp"`
+}
+
 type CephHandler struct {
 	conn *rados.Conn
 }
@@ -119,6 +123,72 @@ func (ch *CephHandler) ListImage(pool string) ([]Image, error) {
 	return images, nil
 }
 
+func (ch *CephHandler) ListSnapshot(pool string, imgName string) ([]SnapShot, error){
+	ioctx, err := ch.conn.OpenIOContext(pool)
+	if err != nil {
+		return nil, err
+	}
+	defer ioctx.Destroy()
+
+	img := rbd.GetImage(ioctx, imgName)
+	if err := img.Open(true); err != nil {
+		return nil, err
+	}
+	defer img.Close()
+
+	snaps := make([]SnapShot, 0)
+	infos, err := img.GetSnapshotNames()
+	if err != nil {
+		return []SnapShot{}, err
+	}
+
+	for _, info := range infos {
+		timestamp, err := strconv.Atoi(info.Name)
+		if err != nil {
+			continue
+		}
+		s := SnapShot{timestamp}
+		snaps = append(snaps, s)
+	}
+	return snaps, nil
+}
+
+func (ch *CephHandler) CreateSnapshot(pool string, imgName string) error {
+	ioctx, err := ch.conn.OpenIOContext(pool)
+	if err != nil {
+		return err
+	}
+	defer ioctx.Destroy()
+
+	img := rbd.GetImage(ioctx, imgName)
+	if err := img.Open(); err != nil {
+		return err
+	}
+	defer img.Close()
+
+	timestamp := time.Now().Unix()
+	name := strconv.Itoa(int(timestamp))
+	_, err = img.CreateSnapshot(name)
+	return err
+}
+
+func (ch *CephHandler) RemoveSnapshot(pool string, imgName string, name string) error {
+	ioctx, err := ch.conn.OpenIOContext(pool)
+	if err != nil {
+		return err
+	}
+	defer ioctx.Destroy()
+
+	img := rbd.GetImage(ioctx, imgName)
+	if err := img.Open(); err != nil {
+		return err
+	}
+	defer img.Close()
+
+	snapshot := img.GetSnapshot(name)
+	return snapshot.Remove()
+}
+
 func (ch *CephHandler) progressCommand(command []string, fn func(int)) error {
 	cmd := exec.Command(command[0], command[1:]...)
 	stderr, err := cmd.StderrPipe() // ceph rbd command use stderr to print progress
@@ -173,6 +243,19 @@ func (ch *CephHandler) Backup(pool string, img string, path string, fn func(int)
 
 func (ch *CephHandler) Restore(pool string, path string, fn func(int)) error {
 	command := []string{"/usr/bin/rbd", "import", "--dest-pool", pool, path}
+	err := ch.progressCommand(command, fn)
+	return err
+}
+
+func (ch *CephHandler) IncrementalBackup(pool string, img string, path string, start string, end string, fn func(int)) error {
+	target := img + "@" + end
+	command := []string{"/usr/bin/rbd", "export-diff", "--pool", pool, target, "--from-snap", start, path}
+	err := ch.progressCommand(command, fn)
+	return err
+}
+
+func (ch *CephHandler) IncrementalRestore(pool string, img string, path string, fn func(int)) error {
+	command := []string{"/usr/bin/rbd", "import-diff", "--pool", pool, path, img}
 	err := ch.progressCommand(command, fn)
 	return err
 }

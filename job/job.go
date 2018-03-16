@@ -18,6 +18,12 @@ type Task struct {
 	Pool         string  `json:"pool"`
 	Image        string  `json:"image"`
 	RepoUuid     string  `json:"repo_uuid"`
+	Incremental  Range   `json:"incremental",omitempty`
+}
+
+type Range struct {
+	Start        string  `json:"start",omitempty`
+	End          string  `json:"end",omitempty`
 }
 
 func NewJob(data string) (*Job, error) {
